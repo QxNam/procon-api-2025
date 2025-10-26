@@ -49,6 +49,8 @@ docker compose up -d
 ```
 
 API: `http://localhost:8000`
+
 Web ranking: `http://localhost:8001/rank/user`
-Web simulatate (demo): `http://localhost:8080/simulation`
+
+Web simulation (demo): `http://localhost:8080/simulation`
 
