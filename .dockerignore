@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.env
+.venv/
+.idea/
+*.sqlite3
+logs/*
+tests/
+README.md
+Makefile

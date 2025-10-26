@@ -1,0 +1,38 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "procon2025"
+version = "0.1.0"
+description = "FastAPI scoring system for Procon"
+authors = [{name = "QxNam", email = "quachnam311@gmail.com"}]
+readme = "README.md"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "alembic",
+    "python-jose[cryptography]",
+    "bcrypt",
+    "passlib[bcrypt]",
+    "pydantic",
+    "pydantic-settings",
+    "httpx",
+    "alembic",
+    "python-multipart",
+    "aiofiles",
+    "python-dotenv",
+    "loguru",
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "numpy",
+    "pandas",
+]
+requires-python = ">=3.10"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']

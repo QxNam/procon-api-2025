@@ -1,0 +1,56 @@
+services:
+  db:
+    container_name: db
+    image: postgres:18
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-procondb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-admin}", "-d", "${POSTGRES_DB:-procondb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  procon-api:
+    container_name: procon-api
+    image: procon-api-dev
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+      - ./test:/app/test
+      - ./storages/questions:/app/storages/questions
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    
+  # cloudflare-tunnel:
+  #   image: cloudflare/cloudflared:latest             
+  #   container_name: cloudflare-tunnel
+  #   environment:
+  #     - TUNNEL_TOKEN=${TUNNEL_TOKEN:-ey}
+  #   command: tunnel run
+  #   healthcheck:
+  #     test: ["CMD", "cloudflared", "--version"]
+  #     interval: 30s                                   
+  #     timeout: 10s                                   
+  #     retries: 3                                    
+  #     start_period: 10s
+  #   restart: always
+
+volumes:
+  pg_data:
+    name: pg_data

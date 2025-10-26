@@ -1,0 +1,50 @@
+# ---------- Stage 1: Cài dependencies bằng uv ----------
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm AS builder
+
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Cài tất cả deps 
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --all-groups --all-extras
+
+# ---------- Stage 2: Image chính để chạy FastAPI ----------
+FROM python:3.11-slim-bookworm
+
+# Giữ log gọn, chạy ổn định
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+# Thư mục làm việc
+WORKDIR /app
+
+# Copy toàn bộ venv từ stage 1
+COPY --from=builder /app/.venv /app/.venv
+
+# Copy source code & tài nguyên
+COPY app app
+COPY storages storages
+COPY logs logs
+COPY alembic.ini .
+COPY alembic alembic
+
+# Cài các system dependencies nếu cần (ví dụ: alembic, curl, ...)
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libpq-dev \
+    build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+# Tạo user không root để chạy app
+RUN useradd --create-home procon
+USER procon
+
+# Expose API
+EXPOSE 8000
+
+# Lệnh chạy FastAPI
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

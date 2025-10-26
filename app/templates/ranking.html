@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script> 
+    
+    <style>
+        /* Hiệu ứng nhấp nháy cho hàng mới/cập nhật */
+        @keyframes flash {
+            0% { background-color: #f0fdf4; } /* Màu xanh lá nhạt */
+            50% { background-color: #d1fae5; }
+            100% { background-color: transparent; }
+        }
+        .highlight-update {
+            animation: flash 1.5s ease-in-out;
+        }
+        /* Hiệu ứng chuyển động (nếu bạn sử dụng thư viện JS như Alpine.js hoặc chuyển đổi CSS) */
+        .transition-transform {
+            transition: transform 0.5s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto bg-white shadow-2xl rounded-xl overflow-hidden p-6">
+        <h2 class="text-3xl font-extrabold text-gray-900 mb-6 text-center">{{ title }}</h2>
+        
+        <div class="overflow-x-auto">
+            <table id="rank-table" class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-indigo-600 text-white">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider rounded-tl-xl">#</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Username</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider rounded-tr-xl">Score</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for user in ranking %}
+                    <tr class="hover:bg-indigo-50 transition duration-150 ease-in-out" data-username="{{ user.username }}" data-score="{{ user.score }}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ loop.index }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ user.username }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 score-cell">{{ user.score }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <p id="update-status" class="mt-4 text-sm text-gray-500 text-center">Đang kết nối...</p>
+    </div>
+
+    <script>
+        const tableBody = document.querySelector("#rank-table tbody");
+        const statusElement = document.getElementById("update-status");
+        
+        // Cần đảm bảo URL WebSocket chính xác. Nếu router WebSocket của bạn là /ws/v1/ranking
+        // bạn cần cập nhật URL trong client. Tôi dùng lại `/ws/rank` như mẫu.
+        const ws = new WebSocket(`ws://${location.host}/ws/rank`); 
+        
+        // Lưu trữ điểm số hiện tại để so sánh và tạo hiệu ứng
+        const currentScores = {};
+        Array.from(tableBody.querySelectorAll('tr')).forEach(row => {
+            currentScores[row.dataset.username] = parseFloat(row.dataset.score);
+        });
+
+        ws.onopen = () => {
+            statusElement.textContent = "Đã kết nối, chờ cập nhật...";
+        };
+
+        ws.onmessage = (event) => {
+            const newRankingData = JSON.parse(event.data);
+            const fragment = document.createDocumentFragment();
+            
+            // Lặp qua dữ liệu mới và tạo/cập nhật các hàng
+            newRankingData.forEach((user, idx) => {
+                const username = user.username;
+                const newScore = parseFloat(user.score);
+                const oldScore = currentScores[username] || 0;
+                
+                const row = document.createElement("tr");
+                row.setAttribute('data-username', username);
+                row.setAttribute('data-score', newScore);
+                
+                // --- 1. ÁP DỤNG THIẾT KẾ TAILWIND ---
+                row.className = 'hover:bg-indigo-50 transition duration-150 ease-in-out';
+                
+                // Thêm màu sắc cho Top 3
+                let rankClass = '';
+                if (idx === 0) rankClass = 'bg-yellow-50/50'; // Vàng nhạt cho hạng 1
+                else if (idx === 1) rankClass = 'bg-gray-100/50';  // Xám nhạt cho hạng 2
+                else if (idx === 2) rankClass = 'bg-orange-50/50'; // Cam nhạt cho hạng 3
+                row.classList.add(rankClass);
+
+                // --- 2. ÁP DỤNG HIỆU ỨNG CẬP NHẬT ---
+                if (newScore > oldScore) {
+                    // Nếu điểm số tăng, highlight hàng đó
+                    row.classList.add('highlight-update');
+                    // Xóa hiệu ứng sau 1.5s
+                    setTimeout(() => {
+                        row.classList.remove('highlight-update');
+                    }, 1500);
+                }
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${idx + 1}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${username}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${newScore > oldScore ? 'text-blue-600' : 'text-green-600'} score-cell">${newScore}</td>
+                `;
+                fragment.appendChild(row);
+                
+                // Cập nhật điểm số hiện tại
+                currentScores[username] = newScore;
+            });
+            
+            // Cập nhật DOM trong một lần để hiệu quả hơn
+            tableBody.innerHTML = ""; 
+            tableBody.appendChild(fragment);
+
+            const now = new Date().toLocaleTimeString();
+            statusElement.textContent = `Cập nhật thành công lúc ${now}.`;
+        };
+        
+        ws.onclose = () => {
+            statusElement.textContent = "Kết nối bị ngắt.";
+            console.log("WebSocket closed");
+        };
+
+        ws.onerror = (error) => {
+            statusElement.textContent = "Lỗi kết nối!";
+            console.error("WebSocket Error:", error);
+        };
+    </script>
+</body>
+</html>
